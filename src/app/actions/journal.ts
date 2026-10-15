@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/owner";
 import { encryptField } from "@/lib/crypto/fieldEncryption";
 import { serializeSideEffects, type SideEffectEntry } from "@/lib/side-effects";
+import { LOCAL_DAY_RE, dayAnchor } from "@/lib/tz-day";
 
 export interface JournalInput {
   /** "yyyy-MM-dd" or full ISO; defaults to now. */
@@ -100,7 +101,10 @@ interface ParsedJournal {
 function parseJournalInput(input: JournalInput): ParsedJournal | { error: string } {
   let date = new Date();
   if (input.dateISO && input.dateISO.trim()) {
-    const d = new Date(input.dateISO.trim());
+    const raw = input.dateISO.trim();
+    // A bare "YYYY-MM-DD" parses as UTC midnight, which the journal page's
+    // local-getter dayKey reads back as the previous day west of UTC.
+    const d = LOCAL_DAY_RE.test(raw) ? dayAnchor(raw) : new Date(raw);
     if (Number.isNaN(d.getTime())) return { error: "Enter a valid date." };
     date = d;
   }
